@@ -4,28 +4,38 @@ import Chart from "react-apexcharts"
 
 export default function Fetch(props){
     const [weather, setWeather] = useState({})
-    const [hour, setHour] = useState(0)
+    const [hour, setHour] = useState(new Date().getHours())
     const [isLoading, setIsLoading] = useState(true)
     const [location, setLocation] = useState("")
     const [latitude, setLatitude] = useState(0)
     const [longitude, setLongitude] = useState(0)
     const [city, setCity] = useState("")
+    const [formSubmit, setFormSubmit] = useState(false)
+    const [days, setDays] = useState(1)
 
     const handleChange = (e) => {
         setCity(e.target.value)
-        console.log(city)
-    }    
+    }
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setFormSubmit(true);
+    }
 
 
     useEffect(() => {
-        fetchCityData();
-    }, [city])
+        if (formSubmit){
+            fetchCityData();
+            setFormSubmit(false)
+        }
+    }, [formSubmit])
 
     useEffect(() => {
-        if (location){
+        if (latitude && longitude){
             fetchData();
         }
-    }, [location, latitude, longitude])
+    }, [latitude, longitude, days])
 
     
     const fetchCityData = async () => {
@@ -38,6 +48,7 @@ export default function Fetch(props){
             });
             const locationData = await res.json();
             setLocation(locationData)
+            console.log(locationData)
             setLatitude(locationData[0].latitude)
             setLongitude(locationData[0].longitude)
         } catch (error) {
@@ -48,7 +59,7 @@ export default function Fetch(props){
 
     const fetchData = async () => {
         try {
-            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m&forecast_days=1`);
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=temperature_2m&forecast_days=${days}`);
             const data = await res.json()
             setWeather(data)
             setIsLoading(false)
@@ -59,16 +70,20 @@ export default function Fetch(props){
     }
 
     const tempArray = weather.hourly?.temperature_2m || [];
+    console.log(tempArray)
+    console.log(tempArray.length)
     const timeArray = weather.hourly?.time || [];
 
     const chartTimeArray = timeArray.map(time => {
         return time.slice(-5)
     })
 
-    // const chartTempArray = tempArray.map(temp => `${temp}°C`)
-
     function handlePlus(){
-        setHour(hour + 1)
+        if (hour < tempArray.length - 1){
+            setHour(hour + 1)
+        } else {
+        alert("Cannot go beyond the available data points.");
+      }
     }
 
     function handleMinus(){
@@ -77,27 +92,51 @@ export default function Fetch(props){
         }
     }
 
-    if (isLoading || !location) {
-        return <div>Loading...</div>
+    function addDays(){
+        if (days < 7){
+            setDays(days + 1)
+        } else {
+        alert("Cannot go beyond the available data points.");
+      }
     }
+
+    function deductDays(){
+        if (days > 0){
+            setDays(days - 1)
+        }
+    }
+
 
     return (
         <div className='container'>
             <div className='main'>
-                <h1>{location && tempArray[hour]}°C</h1>
-                <input
-                    type='string'
-                    placeholder='Enter a city name:'
-                    name='city'
-                    onChange={handleChange}
-                    value={city}
-                />
-                <h3>Kaunas, Lithuania</h3>
                 <div className='main-date'>
+                    <h1>{location && tempArray[hour]}°C </h1>
                     <h2>{timeArray[hour]?.replace('T'," ")}</h2>
                     <button onClick={handleMinus}>-</button>
                     <button onClick={handlePlus}>+</button>
                 </div>
+                
+                {!isLoading ? "" :
+                <form onSubmit={handleSubmit}>
+                    <input
+                        type='string'
+                        placeholder='Enter a city name:'
+                        name='city'
+                        onChange={handleChange}
+                        value={city}
+                    />
+                    <button type='submit'>Submit</button>
+                </form>
+                }
+
+                <div className='main-right'>
+                    <div>Days displayed: {days}</div>
+                    <button onClick={deductDays}>-</button>
+                    <button onClick={addDays}>+</button>
+                    <div> {location ? `${location[0].name}, ${location[0].country}` : ""}</div>
+                </div>
+
             </div>
         <Chart 
         options={{ xaxis: {categories: chartTimeArray }}}
